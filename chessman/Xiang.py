@@ -9,9 +9,9 @@ class Xiang(ChessPiece):
 
     def name(self):
         if self.direction == 'north':
-            return u"相"
-        else:
             return u"象"
+        else:
+            return u"相"
 
     def can_move(self, board, dx, dy):
         x,y = self.x, self.y

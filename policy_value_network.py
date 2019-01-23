@@ -4,9 +4,9 @@ import tensorflow as tf
 
 
 class PolicyValueNet:
-    def __init__(self, board_width=9, board_height=10, model_file=None):
-        self.board_width = board_width
-        self.board_height = board_height
+    def __init__(self, model_file=None):
+        self.board_width = 9
+        self.board_height = 10
         self.prob_size = 2086
 
         # 定义输入层
@@ -98,6 +98,7 @@ class PolicyValueNet:
         self.session.run(init)
 
         # For saving and restoring
+        self.model_file = './model/tf_policy_model'
         self.saver = tf.train.Saver()
         if model_file is not None:
             self.restore_model(model_file)
@@ -145,3 +146,4 @@ class PolicyValueNet:
 
     def restore_model(self, model_path):
         self.saver.restore(self.session, model_path)
+        

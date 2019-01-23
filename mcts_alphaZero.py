@@ -130,7 +130,7 @@ class MCTS(object):
         self.select_time = 0
         self.policy_time = 0
         self.update_time = 0
-        
+        self.task_pool = threadpool.ThreadPool(search_threads)
         self.num_proceed = 0
         self.dnoise = dnoise
 
@@ -151,8 +151,13 @@ class MCTS(object):
             
         start = time.time()
         action_probs, leaf_value = self._policy(state)
+
+        # 黑方翻转概率
+        if state.get_current_player == 'b':
+            action_probs = state.flip_policy(action_probs)
+
         self.policy_time += (time.time() - start)
-        
+
         start = time.time()
         # Check for end of game.
         end, winner = state.game_end()
@@ -177,10 +182,15 @@ class MCTS(object):
         """
         if can_apply_dnoise == False:
             self._root.noise = False
+        coroutine_list = []
         for n in range(self._n_playout):
             state_copy = copy.deepcopy(state)
-            self._playout(state_copy)
+            coroutine_list.append(state_copy)
+            # self._playout(state_copy)
         # calc the move probabilities based on visit counts at the root node
+        requests = threadpool.makeRequests(self._playout, coroutine_list)
+        [self.task_pool.putRequest(req) for req in requests]
+        self.task_pool.wait() 
         act_visits = [(act, node._n_visits) for act, node in self._root._children.items()]
         acts, visits = zip(*act_visits)
         act_probs = softmax(1.0/temp * np.log(np.array(visits) + 1e-10))
@@ -203,7 +213,7 @@ class MCTSPlayer(object):
     """AI player based on MCTS"""
 
     def __init__(self, policy_value_function,
-                 c_puct=5, n_playout=5000, is_selfplay=0):
+                 c_puct=5, n_playout=5000, is_selfplay=1):
         self.mcts = MCTS(policy_value_function, c_puct, n_playout)
         self._is_selfplay = is_selfplay
 
@@ -219,21 +229,38 @@ class MCTSPlayer(object):
         move_probs = np.zeros(labels_len)
         if game_end == False:
             acts, probs = self.mcts.get_move_probs(game_state, temp)
+            tree_nodes = self.mcts._root._children
+            for action in tree_nodes.keys():
+                node = tree_nodes[action]
             acts = game_state.get_legal_move_id()
             move_probs[list(acts)] = probs
+            print('top move {}'.format(self.get_top_5_move(acts, probs)))
             if self._is_selfplay:
                 move = np.random.choice(acts, p=0.75*probs + 0.25*np.random.dirichlet(0.3*np.ones(len(probs))))
+                win_rate = self.mcts._root._Q
                 self.mcts.update_with_move(move)
             else:
                 move = np.random.choice(acts, p=probs)
+                win_rate = self.mcts._root._Q
                 self.mcts.update_with_move(-1)
+            print('move {} {}'.format(move, '%.3f' % move_probs[move]))
             move = game_state.get_move_label_id(move)
             if return_prob:
-                return move, move_probs
+                return move, move_probs, win_rate
             else:
                 return move
         else:
             print("WARNING: the board is full")
+
+    def get_top_5_move(self, acts, move_probs):
+        acts_probs = {}
+        for i in range(len(acts)):
+            acts_probs[acts[i]] = move_probs[i]
+        move_set = sorted(acts_probs.items(), key=lambda d: d[1], reverse=True)
+        top_move = []
+        for each in move_set[:10]:
+            top_move.append((each[0], '%.3f' % each[1]))
+        return top_move
 
     def __str__(self):
         return "MCTS {}".format(self.player)

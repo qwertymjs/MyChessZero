@@ -11,7 +11,6 @@ ind = {pieces_order[i]: i for i in range(14)}
 def flipped_uci_labels(param):
     def repl(x):
         return "".join([(str(9 - int(a)) if a.isdigit() else a) for a in x])
-
     return [repl(x) for x in param]
 
 # 创建所有合法走子UCI，size 2086
@@ -593,8 +592,10 @@ class GameState(object):
         self.lastmove = ""
         self.move_number = 0
         self.enable_record_im = enable_record_im
-        self.board = ChessBoard(True)
+        self.board = ChessBoard()
         self.view = ChessView(board=self.board)
+        self.restrict_round = 0
+        self.tie_num = 75
         
     def is_check_catch(self):
         moveset = GameBoard.get_legal_moves(self.statestr,self.get_next_player())
@@ -632,16 +633,16 @@ class GameState(object):
         return K,k
             
     def game_end(self):
+        if self.restrict_round > self.tie_num:
+            return True, -1 # tie
         if self.statestr.find('k') == -1:
             return True,'w'
         elif self.statestr.find('K') == -1:
             return True,'b'
-        wk,bk = self.get_king_pos()
+        wk, bk = self.get_king_pos()
         targetkingdic = {'b':wk,'w':bk}
         moveset = GameBoard.get_legal_moves(self.statestr,self.get_current_player())
-        
         targetset = set([i[-2:] for i in moveset])
-        
         targ_king = targetkingdic[self.currentplayer]
         if targ_king in targetset:
             return True,self.currentplayer
@@ -656,8 +657,9 @@ class GameState(object):
         elif self.currentplayer == 'b':
             return 'w'
     
-    def do_move(self, move, is_show_gui=0):
+    def do_move(self, move, is_show_gui=0, disp_data=None):
         self.lastmove = move
+        state_pre = self.statestr
         self.statestr = GameBoard.sim_do_action(move, self.statestr)
         if self.currentplayer == 'w':
             self.currentplayer = 'b'
@@ -669,11 +671,24 @@ class GameState(object):
         if self.enable_record_im:
             self.pastdic[self.statestr][1] = self.is_check_catch()
         self.move_number += 1
+        if self.is_kill_move(state_pre, self.statestr) == 0:
+            self.restrict_round += 1
+        else:
+            self.restrict_round = 0
         if is_show_gui == 1:
             # GameBoard.print_board(self.statestr)
-            print('move {}'.format(self.statestr))
-            self.view.update(move)
-        
+            self.view.update(move, disp_data)
+
+    def get_pieces_count(self, state):
+        count = 0
+        for s in state:
+            if s.isalpha():
+                count += 1
+        return count
+
+    def is_kill_move(self, state_prev, state_next):
+        return self.get_pieces_count(state_prev) - self.get_pieces_count(state_next)
+
     def should_cutoff(self):
         # the pastdic is empty when first move was made
         if self.move_number < 2:
@@ -703,6 +718,10 @@ class GameState(object):
     def current_state(self):
         state, palyer = self.try_flip(self.statestr, self.get_next_player(), self.is_black_turn(self.get_next_player()))
         return self.state_to_positions(state)
+
+    def flip_policy(self, prob):
+        prob = prob.flatten()
+        return np.asarray([prob[ind] for ind in unflipped_index])
 
     def replace_board_tags(self, board):
         board = board.replace("2", "11")
@@ -751,15 +770,23 @@ def start_game_play(player, temp=1e-3, is_shown=1):
         game_state = GameState()
         states, mcts_probs, current_players = [], [], []
         while True:
-            move, move_probs = player.get_action(game_state, temp=temp, return_prob=1)
+            start = time.time()
+            move, move_probs, win_rate = player.get_action(game_state, temp=temp, return_prob=1)
+            mcts_time = time.time() - start
+            print('mcts time {}'.format(mcts_time))
+            print('restrict_round {}'.format(game_state.restrict_round))
+            print('move_number {}'.format(game_state.move_number))
             # store the data
             states.append(game_state.statestr)
             mcts_probs.append(move_probs)
             current_players.append(game_state.get_current_player())
             # perform a move
-            game_state.do_move(move, 1)
+            disp_data = {}
+            disp_data['mcts_time'] = mcts_time
+            disp_data['move_number'] = game_state.move_number
+            disp_data['win_rate'] = win_rate
+            game_state.do_move(move, 1, disp_data)
             end, winner = game_state.game_end()
-            print("end {} winner {}".format(end, winner))
             if end:
                 # winner from the perspective of the current player of each state
                 winners_z = np.zeros(len(current_players))
@@ -771,7 +798,6 @@ def start_game_play(player, temp=1e-3, is_shown=1):
                 # reset MCTS root node
                 player.reset_player()
                 if is_shown:
-                    time.sleep(30)
                     if winner != -1:
                         print("Game end. Winner is player:", winner)
                     else:

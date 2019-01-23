@@ -12,7 +12,7 @@ class ChessBoard:
 
     selected_piece = None
 
-    def __init__(self, north_is_red = True):
+    def __init__(self, north_is_red = False):
         # north area
         ChessBoard.pieces[4, 0] = Shuai(4, 0, north_is_red, "north")
         ChessBoard.pieces[0, 3] = Bing(0, 3, north_is_red, "north")

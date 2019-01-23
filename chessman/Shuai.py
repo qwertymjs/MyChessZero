@@ -10,9 +10,9 @@ class Shuai(ChessPiece):
 
     def name(self):
         if self.direction == 'north':
-            return u"帅"
-        else:
             return u"将"
+        else:
+            return u"帅"
 
     def can_move(self, board, dx, dy):
         nx, ny = self.x + dx, self.y + dy

@@ -9,9 +9,9 @@ class Pao(ChessPiece):
 
     def name(self):
         if self.direction == 'north':
-            return u"砲"
-        else:
             return u"炮"
+        else:
+            return u"砲"
 
     def can_move(self, board, dx, dy):
         if dx != 0 and dy != 0: # 炮不能斜着走

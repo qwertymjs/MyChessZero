@@ -9,9 +9,9 @@ class Bing(ChessPiece):
 
     def name(self):
         if self.direction == 'north':
-            return u"兵"
+            return u"卒"
         else:
-            return u'卒'
+            return u'兵'
     def can_move(self, board, dx, dy):
         if abs(dx) + abs(dy) != 1: # 走一格判断
             return False

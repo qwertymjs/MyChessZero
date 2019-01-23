@@ -9,9 +9,9 @@ class Shi(ChessPiece):
 
     def name(self):
         if self.direction == 'north':
-            return u"仕"
-        else:
             return u"士"
+        else:
+            return u"仕"
 
     def can_move(self, board, dx, dy):
         nx, ny = self.x + dx, self.y + dy
