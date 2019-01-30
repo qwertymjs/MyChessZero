@@ -621,7 +621,6 @@ class GameState(object):
         board = board.replace("8", "        ")
         board = board.replace("9", "         ")
         board = board.split('/')
-
         for i in range(3):
             pos = board[i].find('K')
             if pos != -1:
@@ -778,6 +777,7 @@ def start_game_play(player, temp=1e-3, is_shown=1):
             print('move_number {}'.format(game_state.move_number))
             # store the data
             states.append(game_state.statestr)
+            GameBoard.print_board(game_state.statestr)
             mcts_probs.append(move_probs)
             current_players.append(game_state.get_current_player())
             # perform a move

@@ -100,9 +100,9 @@ class PolicyValueNet:
         # For saving and restoring
         self.model_file = './model/tf_policy_model'
         self.saver = tf.train.Saver()
-        if model_file is not None:
-            self.restore_model(model_file)
-            print('restore model_file:', model_file)
+        # if model_file is not None:
+        #     self.restore_model(model_file)
+        #     print('restore model_file:', model_file)
 
     def policy_value(self, state_batch):
         """

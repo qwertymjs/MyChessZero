@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
+import copy
+import time
 
 import numpy as np
-import copy
 import threadpool
-import time
 
 def softmax(x):
     probs = np.exp(x - np.max(x))
@@ -11,11 +11,6 @@ def softmax(x):
     return probs
 
 labels_len = 2086
-
-def softmax(x):
-    probs = np.exp(x - np.max(x))
-    probs /= np.sum(probs)
-    return probs
 
 class TreeNode(object):
     """A node in the MCTS tree.

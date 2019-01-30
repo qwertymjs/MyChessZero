@@ -1,20 +1,22 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-import random
-from GameBoard import GameState, start_game_play
-from collections import defaultdict, deque
-from policy_value_network import *
-from mcts_alphaZero import MCTSPlayer
-import time
-import datetime
-import pickle
-import os
-import sys
-import logging
 import argparse
+import datetime
+import logging
+import os
+import pickle
+import random
+import sys
+import time
+from collections import defaultdict, deque
+
+import numpy as np
+
+from GameBoard import GameState, start_game_play
+from mcts_alphaZero import MCTSPlayer
+from policy_value_network import *
 
 class alphaZero(object):
-    def __init__(self, search_threads = 16, res_block_nums = 7, init_modle = None):
+    def __init__(self, search_threads = 16, res_block_nums = 7, init_modle = True):
         self.temperature = 1
         self.batch_size = 1024
         self.buffer_size = 10000
@@ -32,6 +34,7 @@ class alphaZero(object):
         self.model_file = train_file = os.getcwd() + '/model/tf_policy_model'
         # 是否加载原先已经存在的训练数据
         if init_modle:
+            print(self.model_file)
             self.policy_value_net = PolicyValueNet(self.model_file)
         else:
             self.policy_value_net = PolicyValueNet()
@@ -44,12 +47,12 @@ class alphaZero(object):
         for i in range(n_games):
             winner, play_data = start_game_play(self.mcts_player, temp=self.temp)
             now = datetime.datetime.now()
-            train_data_file = now.strftime("%Y%m%d%H%M%S")
-            train_data = {}
-            train_data['winner'] = winner
-            train_data['play_data'] = play_data
-            f = open(os.getcwd() + '/train_data/' +str(train_data_file), 'wb')
-            pickle.dump(train_data, f)
+            # train_data_file = now.strftime("%Y%m%d%H%M%S")
+            # train_data = {}
+            # train_data['winner'] = winner
+            # train_data['play_data'] = play_data
+            # f = open(os.getcwd() + '/train_data/' +str(train_data_file), 'wb')
+            # pickle.dump(train_data, f)
 
     # 读取selfplay数据训练
     def start_model_train(self, n_train=10000, buffer_size=10000, train_batch_size=2400, model_file=None):
@@ -66,18 +69,19 @@ class alphaZero(object):
             extend_data = []
             for parent in parents:
                 f = open(train_file + str(parent), 'rb')
-                train_data = pickle.load(f)
-                winner = train_data['winner']
-                play_data = train_data['play_data']    
+                train_data = pickle.load(f, encoding='bytes')
+                winner_ = train_data[b'winner']
+                play_data = train_data[b'play_data']    
                 for state, mcts_prob, winner in play_data:
+                    state=str(state, 'utf-8')
                     states_data = gs.state_to_positions(state)
                     extend_data.append((states_data, mcts_prob, winner))
                 self.data_buffer.extend(extend_data)
-            print('data_buffer {}'.format(len(self.data_buffer)))
-            if len(self.data_buffer) > self.batch_size:
-                self.policy_update(self.policy_value_net)
-                self.policy_value_net.saver.save(self.policy_value_net.session, self.policy_value_net.model_file)
-            print(winner)
+                print('data_buffer {}'.format(len(self.data_buffer)))
+                if len(self.data_buffer) > self.batch_size:
+                    self.policy_update(self.policy_value_net)
+                    self.policy_value_net.saver.save(self.policy_value_net.session, self.policy_value_net.model_file)
+                print(winner_)
         except KeyboardInterrupt:
              logging.info('\n\rquit') 
 
@@ -145,8 +149,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
     obj = alphaZero(init_modle=True)
     if args.type == 'train':
-        obj.start_model_train()
+        model_file = os.getcwd() + '/model/tf_policy_model'
+        obj.start_model_train(model_file = model_file)
     elif args.type == 'selfplay':
         obj.start_selfplay_data()
     elif args.type == 'evaluate':
         obj.start_model_evaluate()
+    else:
+        print('alphazero')
